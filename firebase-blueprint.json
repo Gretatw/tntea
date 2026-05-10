@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A drink item on the menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "price", "category", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer's drink order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "preparing", "ready", "completed", "cancelled"]
+        },
+        "total": { "type": "number" },
+        "items": { "type": "array" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "status", "total", "items", "createdAt", "updatedAt"]
+    },
+    "UserRole": {
+      "title": "UserRole",
+      "description": "Role mapping for admins",
+      "type": "object",
+      "properties": {
+        "isAdmin": { "type": "boolean" },
+        "email": { "type": "string" }
+      },
+      "required": ["isAdmin"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Menu products"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders"
+    },
+    "/userRoles/{userId}": {
+      "schema": { "$ref": "#/entities/UserRole" },
+      "description": "Admin roles"
+    }
+  }
+}
