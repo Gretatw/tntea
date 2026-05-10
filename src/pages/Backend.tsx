@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { db, auth } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut, User } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { format } from 'date-fns';
 import { Store, LogOut, CheckCircle, Clock, XCircle, Trash2 } from 'lucide-react';
 
@@ -9,6 +9,7 @@ export default function Backend() {
   const [user, setUser] = useState<User | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -20,30 +21,53 @@ export default function Backend() {
     return unsub;
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
     } catch (err: any) {
-      setError(err.message || '登入失敗');
+      if (err.code === 'auth/operation-not-allowed') {
+         setError('請先至 Firebase Console 的 Authentication > Sign-in method 啟用「電子郵件/密碼」登入方式。');
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+         setError('帳號或密碼錯誤');
+      } else if (err.code === 'auth/email-already-in-use') {
+         setError('此 Email 已被註冊');
+      } else if (err.code === 'auth/weak-password') {
+         setError('密碼長度需至少 6 個字元');
+      } else {
+         setError(err.message || '登入/註冊失敗');
+      }
     }
   };
 
   const handleLogout = () => signOut(auth);
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-100">載入中...</div>;
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f0] text-[#5A5A40] font-sans">載入中...</div>;
 
   if (!user) {
     return (
       <div className="min-h-screen bg-[#f5f5f0] flex items-center justify-center p-4 font-serif">
-        <form onSubmit={handleLogin} className="bg-white p-10 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-sm space-y-8">
+        <form onSubmit={handleAuth} className="bg-white p-10 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-sm space-y-8 relative">
+          <div className="absolute top-6 right-6">
+             <button 
+                type="button" 
+                onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+                className="text-xs font-sans text-gray-400 hover:text-[#5A5A40] uppercase tracking-widest transition"
+             >
+                {isRegistering ? '返回登入' : '註冊'}
+             </button>
+          </div>
           <div className="text-center">
             <div className="w-16 h-16 bg-[#E8E4D9] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#5A5A40]">
               <Store size={32} />
             </div>
             <h1 className="text-2xl font-bold text-[#5A5A40] tracking-tight">茶聚軒 後台</h1>
-            <p className="text-xs font-sans text-gray-400 uppercase tracking-widest mt-2">Manager Login</p>
+            <p className="text-xs font-sans text-gray-400 uppercase tracking-widest mt-2">{isRegistering ? 'Manager Registration' : 'Manager Login'}</p>
           </div>
           {error && <p className="text-red-500 bg-red-50 p-4 rounded-[16px] text-sm font-sans text-center">{error}</p>}
           <div className="space-y-4 font-sans">
@@ -53,10 +77,10 @@ export default function Backend() {
             </div>
             <div>
               <label className="block text-[10px] font-bold tracking-widest uppercase text-gray-400 mb-2 pl-2">密碼</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-5 py-3.5 bg-[#f5f5f0] rounded-[16px] focus:outline-none focus:ring-2 focus:ring-[#5A5A40] text-sm border-none" />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} className="w-full px-5 py-3.5 bg-[#f5f5f0] rounded-[16px] focus:outline-none focus:ring-2 focus:ring-[#5A5A40] text-sm border-none" />
             </div>
           </div>
-          <button type="submit" className="w-full bg-[#5A5A40] text-white font-sans font-bold tracking-widest uppercase py-4 rounded-full hover:opacity-90 transition shadow-lg">登入</button>
+          <button type="submit" className="w-full bg-[#5A5A40] text-white font-sans font-bold tracking-widest uppercase py-4 rounded-full hover:opacity-90 transition shadow-lg">{isRegistering ? '註冊' : '登入'}</button>
         </form>
       </div>
     );
