@@ -1,21 +1,20 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Layout from './components/Layout';
-import Home from './pages/Home';
-import Cart from './pages/Cart';
-import Orders from './pages/Orders';
-import Admin from './pages/Admin';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Frontend from './pages/Frontend';
+import Backend from './pages/Backend';
+import { CartProvider } from './context/CartContext';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="cart" element={<Cart />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="admin" element={<Admin />} />
-        </Route>
+        <Route path="/" element={
+          <CartProvider>
+            <Frontend />
+          </CartProvider>
+        } />
+        <Route path="/admin" element={<Backend />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
