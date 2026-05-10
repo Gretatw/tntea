@@ -1,6 +1,6 @@
 {
-  "name": "一沐日 茶飲點單系統",
-  "description": "茶飲點單系統，包含前台點餐與後台管理，並整合 Firebase 儲存資料與訂單。",
+  "name": "一沐日線上點單系統",
+  "description": "茶飲點單系統，包含前台顧客點選與後台訂單管理，資料儲存於 Firebase。",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
