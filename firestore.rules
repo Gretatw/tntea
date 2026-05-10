@@ -1,75 +1,34 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Global Deny
+    function isSignedIn() { return request.auth != null; }
+    
+    // Any authenticated user is considered an admin (we only create admins manually)
+    function isAdmin() { return isSignedIn(); }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['customerName', 'customerPhone', 'items', 'totalPrice', 'status', 'createdAt'])
+        && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 50
+        && data.customerPhone is string && data.customerPhone.size() > 0 && data.customerPhone.size() <= 20
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 50
+        && data.totalPrice is number && data.totalPrice >= 0
+        && data.status in ['pending', 'preparing', 'completed', 'cancelled']
+        && data.createdAt is timestamp;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/userRoles/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/userRoles/$(request.auth.uid)).data.isAdmin == true;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-
-    function isValidProduct(data) {
-      return data.keys().hasAll(['name', 'price', 'category', 'createdAt']) &&
-        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-        data.price is number && data.price >= 0 &&
-        data.category is string && data.category.size() > 0 && data.category.size() <= 50 &&
-        data.createdAt is number;
-    }
-
-    function isValidOrder(data) {
-      return data.keys().hasAll(['userId', 'status', 'total', 'items', 'createdAt', 'updatedAt']) &&
-        data.userId is string && data.userId == request.auth.uid &&
-        data.status in ['pending', 'preparing', 'ready', 'completed', 'cancelled'] &&
-        data.total is number && data.total >= 0 &&
-        data.items is list && data.items.size() > 0 && data.items.size() <= 100 && // Basic array constraint
-        data.createdAt is number &&
-        data.updatedAt is number;
-    }
-
-    match /products/{productId} {
-      allow read: if true; // anyone can read menu
-      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming()) && incoming().createdAt == request.time.toMillis();
-      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
-      allow delete: if isAdmin() && isValidId(productId);
-    }
-
     match /orders/{orderId} {
-      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      
-      // Clients can create orders
-      allow create: if isSignedIn() && isValidId(orderId) && isValidOrder(incoming()) && incoming().createdAt == request.time.toMillis() && incoming().updatedAt == request.time.toMillis();
-      
-      // Clients can cancel, admin can update status
-      allow update: if isSignedIn() && isValidId(orderId) && isValidOrder(incoming()) && incoming().updatedAt == request.time.toMillis() && incoming().createdAt == existing().createdAt && incoming().userId == existing().userId && incoming().items == existing().items && incoming().total == existing().total && (
-        isAdmin() || // Admins can change status
-        (
-          existing().userId == request.auth.uid && 
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
-          existing().status == 'pending' && incoming().status == 'cancelled'
-        )
-      );
-    }
-
-    match /userRoles/{userId} {
-      allow read: if isSignedIn() && userId == request.auth.uid; // Only user can read their own role (and admin function)
-      // Allow root admin or no writers initially
-      allow write: if false; 
+      allow create: if isValidOrder(incoming()) && incoming().status == 'pending' && incoming().createdAt == request.time;
+      allow get: if true;
+      allow list: if isAdmin();
+      allow update: if isAdmin() && isValidOrder(incoming());
+      allow delete: if isAdmin();
     }
   }
 }
